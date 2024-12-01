@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Game</title>
+    <style>
+        body {
+            margin: 0; /* Remove default margin */
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* Full height of the viewport */
+        }
+        canvas {
+            border: 2px solid black;
+            background: #f0f0f0;
+            flex: 1; /* Allow canvas to grow and fill available space */
+        }
+        .controls {
+            padding: 10px; /* Add some padding for controls */
+            background: white; /* Background for controls */
+            z-index: 10; /* Ensure controls are above the canvas */
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <div>Score: <span id="scoreDisplay">0</span></div>
+        <div>Time: <span id="timerDisplay">0</span> seconds</div>
+        <select id="colorPicker">
+            <option value="red">Red</option>
+            <option value="blue">Blue</option>
+            <option value="green">Green</option>
+            <option value="yellow">Yellow</option>
+            <option value="purple">Purple</option>
+            <option value="orange">Orange</option>
+        </select>
+        <input type="number" id="speedControl" value="5" min="1" max="20">
+        <label for="speedControl">Player Speed</label>
+        <select id="modeSelect">
+            <option value="player">Player Control</option>
+            <option value="dvd">DVD Bounce</option>
+        </select>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const colorSelect = document.getElementById("colorPicker");
+        const speedControl = document.getElementById("speedControl");
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        let timer = 0;
+        let timerInterval;
+        let score = 0;
+        let canScore = true;
+        let hoopPassCount = 0;
+
+        // Player properties
+        const player = {
+            x: 0,
+            y: 0,
+            size: 10,
+            speed: 0.5,
+            color: 'red',
+            dx: 5,
+            dy: 5
+        };
+
+        // Add hoop properties
+        const hoop = {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 100,
+            color: 'orange',
+            centerY: function() { return this.y + this.height / 2; }
+        };
+
+        // Add speed boost properties
+        const speedBoost = {
+            x: Math.random() * (canvas.width - 20) + 10,
+            y: Math.random() * (canvas.height - 20) + 10,
+            radius: 10,
+            color: 'purple'
+        };
+
+        // Initialize keys object
+        const keys = {};
+
+        // Event listeners for key presses
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true; // Set the key to true when pressed
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false; // Set the key to false when released
+        });
+
+        // Start the timer
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timer++;
+                timerDisplay.textContent = timer;
+            }, 1000);
+        }
+
+        function handlePlayerMode() {
+            // Move player and handle bouncing
+            if (keys['ArrowLeft']) {
+                player.x -= player.speed;
+                if (player.x < 0) {
+                    player.x = 0;
+                    player.speed = -player.speed;
+                    setTimeout(() => player.speed = Math.abs(player.speed), 200);
+                }
+            }
+            if (keys['ArrowRight']) {
+                player.x += player.speed;
+                if (player.x > canvas.width - player.size) {
+                    player.x = canvas.width - player.size;
+                    player.speed = -player.speed;
+                    setTimeout(() => player.speed = Math.abs(player.speed), 200);
+                }
+            }
+            if (keys['ArrowUp']) {
+                player.y -= player.speed;
+                if (player.y < 0) {
+                    player.y = 0;
+                    player.speed = -player.speed;
+                    setTimeout(() => player.speed = Math.abs(player.speed), 200);
+                }
+            }
+            if (keys['ArrowDown']) {
+                player.y += player.speed;
+                if (player.y > canvas.height - player.size) {
+                    player.y = canvas.height - player.size;
+                    player.speed = -player.speed;
+                    setTimeout(() => player.speed = Math.abs(player.speed), 200);
+                }
+            }
+
+            // Check for scoring
+            if (canScore && 
+                player.x + player.size >= hoop.x && 
+                player.x <= hoop.x + hoop.width &&
+                player.y + player.size >= hoop.centerY() - (player.size / 2) &&
+                player.y <= hoop.centerY() + (player.size / 2)) {
+                score++;
+                hoopPassCount++;
+                scoreDisplay.textContent = score;
+                canScore = false;
+
+                // Move hoop to new random position
+                hoop.x = Math.random() * (canvas.width - hoop.width - 100) + 50;
+                hoop.y = Math.random() * (canvas.height - hoop.height - 100) + 50;
+
+                // Check if the player has passed through the hoop 10 times
+                if (hoopPassCount >= 10) {
+                    clearInterval(timerInterval);
+                    alert("Game Over! Your time: " + timer + " seconds");
+                }
+            }
+
+            // Check for speed boost
+            const distX = player.x + player.size / 2 - (speedBoost.x + speedBoost.radius);
+            const distY = player.y + player.size / 2 - (speedBoost.y + speedBoost.radius);
+            const distance = Math.sqrt(distX * distX + distY * distY);
+
+            if (distance < player.size / 2 + speedBoost.radius) {
+                const boostAmount = Math.floor(Math.random() * 5) + 1;
+                player.speed += boostAmount;
+                setTimeout(() => {
+                    player.speed -= boostAmount;
+                }, 3000);
+
+                // Move speed boost to a new random position
+                speedBoost.x = Math.random() * (canvas.width - 20) + 10;
+                speedBoost.y = Math.random() * (canvas.height - 20) + 10;
+            }
+
+            // Reset scoring ability when player is not in contact with hoop
+            if (player.x + player.size < hoop.x || 
+                player.x > hoop.x + hoop.width ||
+                player.y + player.size < hoop.y || 
+                player.y > hoop.y + hoop.height) {
+                canScore = true;
+            }
+        }
+
+        function gameLoop() {
+            handlePlayerMode();
+
+            // Clear canvas and draw everything
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw hoop in player mode
+            ctx.fillStyle = hoop.color;
+            ctx.fillRect(hoop.x, hoop.y, hoop.width, hoop.height);
+            
+            // Draw the blue line in the middle of the hoop
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(hoop.x, hoop.centerY());
+            ctx.lineTo(hoop.x + hoop.width, hoop.centerY());
+            ctx.stroke();
+
+            // Draw speed boost
+            ctx.fillStyle = speedBoost.color;
+            ctx.beginPath();
+            ctx.arc(speedBoost.x + speedBoost.radius, speedBoost.y + speedBoost.radius, speedBoost.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game and timer
+        startTimer();
+        gameLoop();
+    </script>
+</body>
+</html>
